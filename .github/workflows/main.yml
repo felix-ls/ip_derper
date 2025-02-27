@@ -42,7 +42,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           file: 'Dockerfile'
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64,linux/arm
           context: ./
           push: true
           tags: |
