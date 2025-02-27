@@ -12,7 +12,7 @@ RUN cd /app/tailscale/cmd/derper && \
     cd /app && \
     rm -rf /app/tailscale
 
-FROM ubuntu:20.04
+FROM alpine:3.15
 WORKDIR /app
 
 # ========= CONFIG =========
@@ -26,8 +26,8 @@ ENV DERP_VERIFY_CLIENTS false
 # ==========================
 
 # apt
-RUN apt-get update && \
-    apt-get install -y openssl curl
+RUN apk upgrade -U -a && \
+    apk add --no-cache openssl curl
 
 COPY build_cert.sh /app/
 COPY --from=builder /app/derper /app/derper
