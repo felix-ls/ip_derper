@@ -26,8 +26,10 @@ ENV DERP_VERIFY_CLIENTS false
 # ==========================
 
 # apt
-RUN apk upgrade -U -a && \
-    apk add --no-cache openssl curl
+RUN apk update && apk upgrade -U -a && \
+    apk add --no-cache openssl curl && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
 
 COPY build_cert.sh /app/
 COPY --from=builder /app/derper /app/derper
