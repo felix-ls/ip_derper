@@ -1,28 +1,29 @@
-FROM golang:latest AS builder
+FROM golang:alpine AS builder
 
-LABEL org.opencontainers.image.source https://github.com/yangchuansheng/ip_derper
+LABEL org.opencontainers.image.source=https://github.com/lingjiehao/ip_derper
 
 WORKDIR /app
 
-ADD tailscale /app/tailscale
+ADD . /app
+
+RUN apk add git && \
+    git config --global --add safe.directory /app
 
 # build modified derper
-RUN cd /app/tailscale/cmd/derper && \
-    CGO_ENABLED=0 /usr/local/go/bin/go build -buildvcs=false -ldflags "-s -w" -o /app/derper && \
-    cd /app && \
-    rm -rf /app/tailscale
+RUN cd /app/tailscale && \
+    ./build_dist.sh --extra-small -buildvcs=false -o /app/derper tailscale.com/cmd/derper
 
-FROM alpine:3.15
+FROM alpine:3.16
 WORKDIR /app
 
 # ========= CONFIG =========
 # - derper args
-ENV DERP_ADDR :443
-ENV DERP_HTTP_PORT 80
-ENV DERP_HOST=127.0.0.1
-ENV DERP_CERTS=/app/certs/
-ENV DERP_STUN true
-ENV DERP_VERIFY_CLIENTS false
+ENV DERP_ADDR=:443 \
+    DERP_HTTP_PORT=80 \
+    DERP_HOST=127.0.0.1 \
+    DERP_CERTS=/app/certs/ \
+    DERP_STUN=true \
+    DERP_VERIFY_CLIENTS=false
 # ==========================
 
 # apt
