@@ -2,37 +2,80 @@ name: 'Submodules Sync'
 
 on:
   schedule:
-  - cron: "0 2 * * *"
-  # Allows you to run this workflow manually from the Actions tab or through HTTP API
+    - cron: "0 2 * * *"
   workflow_dispatch:
+
 
 jobs:
   sync:
     name: 'Submodules Sync'
     runs-on: ubuntu-latest
-
-    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
       run:
         shell: bash
 
     steps:
-    # Checkout the repository to the GitHub Actions runner
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        token: ${{ secrets.CI_TOKEN }}
-        submodules: true
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: true
+          fetch-depth: 0
 
-    # Update references
-    - name: Git Sumbodule Update
-      run: |
-        git pull --recurse-submodules
-        git submodule update --remote --recursive
+      - name: Update Submodule to Latest Release
+        run: |
+          latest_release=$(curl -sSL https://api.github.com/repos/tailscale/tailscale/releases/latest | jq -r '.tag_name')
+          if [ -z "$latest_release" ] || [ "$latest_release" == "null" ]; then
+            echo "❌ Failed to fetch latest release tag"
+            exit 1
+          fi
+          echo "✅ Latest release: $latest_release"
+          echo "latest_release=$latest_release" >> $GITHUB_ENV
 
-    - name: Commit update
-      run: |
-        git config --global user.name 'Git bot'
-        git config --global user.email 'bot@noreply.github.com'
-        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-        git commit -am "Auto updated submodule references" && git push || echo "No changes to commit"
+          cd tailscale
+          git fetch --tags
+          git checkout $latest_release
+          cd ..
+
+      - name: Verify Build Before Commit
+        run: |
+          docker build -t temp-build-test .  # 或你的验证命令
+          echo "✅ Build verification passed!"
+
+      - name: Cache source hash
+        id: cacheHash
+        uses: actions/cache@v4
+        with:
+          path: |
+            tailscale/
+          key: ${{ hashFiles('tailscale/VERSION.txt') }}
+
+      - name: Commit and Push if changed
+        run: |
+          git config --global user.name 'Git bot'
+          git config --global user.email 'bot@noreply.github.com'
+
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "✅ No changes detected. Nothing to commit."
+          else
+            echo "📝 Changes detected. Committing..."
+            git add .
+            git commit -m "chore: auto update submodule to ${{ env.latest_release }}"
+            git push
+            echo "✅ Pushed submodule update to ${{ env.latest_release }}"
+          fi
+
+      # 👇 只有真实内容变更才触发构建
+      - name: Trigger build
+        if: steps.cacheHash.outputs.cache-hit != 'true'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: Pushed submodule update to ${{ env.latest_release }}
+
+      # 👇 清理旧运行记录
+      - name: Delete workflow runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          retain_days: 1
+          keep_minimum_runs: 1
