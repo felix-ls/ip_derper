@@ -12,7 +12,7 @@ RUN cd /app/tailscale/cmd/derper && \
     cd /app && \
     rm -rf /app/tailscale
 
-FROM ubuntu:20.04
+FROM alpine:3.15
 WORKDIR /app
 
 # ========= CONFIG =========
@@ -26,14 +26,16 @@ ENV DERP_VERIFY_CLIENTS false
 # ==========================
 
 # apt
-RUN apt-get update && \
-    apt-get install -y openssl curl
+RUN apk update && apk upgrade -U -a && \
+    apk add --no-cache openssl curl && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    rm -rf /tmp/* /var/tmp/* /var/cache/apk/* /var/cache/distfiles/*
 
 COPY build_cert.sh /app/
 COPY --from=builder /app/derper /app/derper
 
 # build self-signed certs && start derper
-CMD bash /app/build_cert.sh $DERP_HOST $DERP_CERTS /app/san.conf && \
+CMD sh /app/build_cert.sh $DERP_HOST $DERP_CERTS /app/san.conf && \
     /app/derper --hostname=$DERP_HOST \
     --certmode=manual \
     --certdir=$DERP_CERTS \
