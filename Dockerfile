@@ -1,6 +1,6 @@
 FROM golang:alpine AS builder
 
-LABEL org.opencontainers.image.source=https://github.com/lingjiehao/ip_derper
+LABEL org.opencontainers.image.source=https://github.com/felix-ls/ip_derper
 
 WORKDIR /app
 
@@ -23,10 +23,11 @@ ENV DERP_ADDR=:443 \
     DERP_HOST=127.0.0.1 \
     DERP_CERTS=/app/certs/ \
     DERP_STUN=true \
+    DERP_STUN_PORT=3478 \
     DERP_VERIFY_CLIENTS=false
 # ==========================
 
-# apt
+# apk
 RUN apk update && apk upgrade -U -a && \
     apk add --no-cache openssl curl && \
     echo "Asia/Shanghai" > /etc/timezone && \
@@ -36,11 +37,12 @@ COPY build_cert.sh /app/
 COPY --from=builder /app/derper /app/derper
 
 # build self-signed certs && start derper
-CMD sh /app/build_cert.sh $DERP_HOST $DERP_CERTS /app/san.conf && \
+CMD ["/bin/sh","-c","sh /app/build_cert.sh $DERP_HOST $DERP_CERTS /app/san.conf && \
     /app/derper --hostname=$DERP_HOST \
     --certmode=manual \
     --certdir=$DERP_CERTS \
     --stun=$DERP_STUN  \
+    --stun-port=$DERP_STUN_PORT  \
     --a=$DERP_ADDR \
     --http-port=$DERP_HTTP_PORT \
-    --verify-clients=$DERP_VERIFY_CLIENTS
+    --verify-clients=$DERP_VERIFY_CLIENTS"]
